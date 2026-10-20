@@ -1,0 +1,19 @@
+{
+  "id": "/dads-music/",
+  "name": "아빠 음악",
+  "short_name": "아빠 음악",
+  "description": "Google Drive 음악 오프라인 플레이어",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0d0e",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/lexi-assets/music-logo.png?v=2",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
