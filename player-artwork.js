@@ -63,7 +63,7 @@
     return {
       title: metadata?.title || nowTitle?.textContent?.trim() || '',
       artist: metadata?.artist || '아빠 음악',
-      album: metadata?.album || "Dad's Music"
+      album: "Dad's Music"
     };
   }
 
@@ -134,6 +134,14 @@
   });
   audio.addEventListener('loadedmetadata', syncArtwork);
   audio.addEventListener('play', syncArtwork);
+
+  if (!document.querySelector('script[data-fullscreen-now-playing="1"]')) {
+    const script = document.createElement('script');
+    script.src = './now-playing-fullscreen.js?v=1';
+    script.defer = true;
+    script.dataset.fullscreenNowPlaying = '1';
+    document.head.appendChild(script);
+  }
 
   window.addEventListener('pagehide', releaseArtwork, { once: true });
 })();
