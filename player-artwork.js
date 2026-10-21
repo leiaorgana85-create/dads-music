@@ -63,7 +63,7 @@
     return {
       title: metadata?.title || nowTitle?.textContent?.trim() || '',
       artist: metadata?.artist || '아빠 음악',
-      album: "Dad's Music"
+      album: metadata?.album || "Dad's Music"
     };
   }
 
