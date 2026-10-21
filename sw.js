@@ -1,6 +1,6 @@
-const CACHE_NAME = 'dads-music-v22';
+const CACHE_NAME = 'dads-music-v23';
 const CACHE_PREFIX = 'dads-music-v';
-const MEDIA_CONTROLS_JS = './media-session-controls.js?v=3';
+const MEDIA_CONTROLS_JS = './media-session-controls.js?v=4';
 const SHELL = [
   './',
   './index.html',
@@ -47,7 +47,7 @@ async function injectMediaControls(response) {
   headers.delete('etag');
   const html = text.includes('media-session-controls.js')
     ? text
-    : text.replace('</body>', '  <script src="./media-session-controls.js?v=3" defer></script>\n</body>');
+    : text.replace('</body>', '  <script src="./media-session-controls.js?v=4" defer></script>\n</body>');
   return new Response(html, { status: response.status, statusText: response.statusText, headers });
 }
 
