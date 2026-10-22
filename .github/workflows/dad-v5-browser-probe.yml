@@ -4,6 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# temporary instrumented rerun
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -19,12 +20,12 @@ jobs:
           echo 'HEALTH=PASS'
 
           for i in $(seq 1 24); do
-            if curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'data-test-result="running"'; then
+            if curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'TRACE='; then
               break
             fi
             sleep 5
           done
-          curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'data-test-result="running"'
+          curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'TRACE='
           echo 'PAGES_TEST=LIVE'
 
           BROWSER=''
