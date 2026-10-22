@@ -122,6 +122,7 @@
       els.syncBtn.disabled = false;
       els.saveSettingsBtn.disabled = false;
       if (els.factoryResetBtn) els.factoryResetBtn.disabled = false;
+      render();
     }
   }
 
@@ -385,6 +386,7 @@
       const reject = document.createElement('button');
       reject.className = 'reject-btn';
       reject.type = 'button';
+      reject.disabled = operationBusy;
       reject.textContent = '빼기';
       reject.setAttribute('aria-label', `${cleanTitle(track.name)} 목록에서 빼기`);
       reject.addEventListener('click', event => {
@@ -840,7 +842,7 @@
   els.prevBtn.addEventListener('click', playPrev);
   els.nextBtn.addEventListener('click', () => playNext(false));
   els.playBtn.addEventListener('click', () => {
-    if (!currentId && library[0]) return playTrack(library[0].id);
+    if (!currentId && playableQueue()[0]) return playTrack(playableQueue()[0].id);
     els.audio.paused ? resumeAudio() : els.audio.pause();
   });
 
