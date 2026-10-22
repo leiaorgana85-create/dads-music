@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'dads-music-v';
-const CACHE_NAME = 'dads-music-v29';
-const SHELL = ['./', './index.html', './manifest.json?v=5', '/lexi-assets/music-logo.png?v=2', './styles.css?v=3', './dad-writer-bridge.js?v=2', './audio-storage.js?v=3', './metadata.js?v=1', './track-list-display.js?v=1', './app.js?v=8', './player-artwork.js?v=2', './media-session-controls.js?v=5', './now-playing-fullscreen.js?v=2', './reset.html', './privacy.html', './terms.html'];
+const CACHE_NAME = 'dads-music-v30';
+const SHELL = ['./', './index.html', './manifest.json?v=5', '/lexi-assets/music-logo.png?v=2', './styles.css?v=3', './dad-writer-bridge.js?v=2', './audio-storage.js?v=3', './metadata.js?v=1', './track-list-display.js?v=1', './app.js?v=9', './player-artwork.js?v=2', './media-session-controls.js?v=5', './now-playing-fullscreen.js?v=2', './reset.html', './privacy.html', './terms.html'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

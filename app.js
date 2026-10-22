@@ -11,6 +11,7 @@
   const SHUFFLE_KEY = 'dadsMusicShuffle';
   const REJECTED_KEY = 'dadsMusicRejectedLocal';
   const PENDING_KEY = 'dadsMusicRejectedPending';
+  const OUTBOX_MIGRATION_KEY = 'dadsMusicRejectionOutboxV1';
   const LEDGER_NAME = 'REJECTED_SONGS.csv';
   const SUPPORTED_MIMES = new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/flac', 'audio/x-flac', 'audio/wav', 'audio/x-wav']);
 
@@ -181,7 +182,13 @@
   function saveRejected(rows) { localStorage.setItem(REJECTED_KEY, JSON.stringify(dedupeRows(rows))); }
   function loadPending() { return loadRows(PENDING_KEY); }
   function savePending(rows) { localStorage.setItem(PENDING_KEY, JSON.stringify(dedupeRows(rows))); }
-  function rejectedMap() { return new Map(loadRejected().map(row => [row.id, row])); }
+  function rejectedMap() { return new Map(dedupeRows([...loadRejected(), ...loadPending()]).map(row => [row.id, row])); }
+
+  function migrateLegacyRejections() {
+    if (localStorage.getItem(OUTBOX_MIGRATION_KEY) === '1') return;
+    savePending([...loadPending(), ...loadRejected()]);
+    localStorage.setItem(OUTBOX_MIGRATION_KEY, '1');
+  }
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -506,7 +513,11 @@
     const pending = loadPending();
     if (!pending.length || !navigator.onLine) return;
     const bridge = await ensureBridge();
-    for (const row of pending) await bridge.sendReject(row.id);
+    const failures = [];
+    for (const row of pending) {
+      try { await bridge.sendReject(row.id); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw failures[0];
   }
 
   function confirmPendingFromRemote(remoteRows) {
@@ -516,7 +527,7 @@
   }
 
   function mergeRejected(remoteRows) {
-    const rows = dedupeRows([...remoteRows, ...loadRejected()]);
+    const rows = dedupeRows([...remoteRows, ...loadRejected(), ...loadPending()]);
     saveRejected(rows);
     return new Map(rows.map(row => [row.id, row]));
   }
@@ -612,8 +623,10 @@
     if (!confirm(`“${cleanTitle(track.name)}”을 목록에서 뺄까요?\n\n휴대폰에서 삭제되고 다음 음악 업데이트에서도 다시 받지 않습니다.`)) return;
 
     const row = { id, name: track.name, rejectedAt: new Date().toISOString() };
-    saveRejected([...loadRejected(), row]);
+    // Persist the outbox first. Its IDs also block playback/download if the
+    // secondary local preference write fails or the app closes between writes.
     savePending([...loadPending(), row]);
+    saveRejected([...loadRejected(), row]);
 
     await removeLocalTrack(id);
     await reloadLocal();
@@ -940,6 +953,7 @@
   });
 
   async function boot() {
+    migrateLegacyRejections();
     cleanLegacyAuthState();
     removePosition();
     saveSettings();
