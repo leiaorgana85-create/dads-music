@@ -32,7 +32,7 @@
 
   <section id="player" class="player hidden" aria-label="재생 중">
     <div class="now-row"><div class="now-copy"><div id="nowTitle" class="now-title">—</div><div id="nowStatus" class="now-status">—</div></div><div class="player-options"><button id="repeatBtn" class="option-btn repeat-btn" type="button" aria-label="전체 반복">↻ 전체</button></div></div>
-    <div class="seek-wrap"><input id="seek" class="seek" type="range" min="0" max="1000" value="0" /><div class="seek-times"><span id="timeCurrent">0:00</span><span id="timeTotal">0:00</span></div></div>
+    <div class="seek-wrap"><input id="seek" class="seek" type="range" min="0" max="1000" value="0" /><div class="seek-times"><span id="timeCurrent" class="time-current">0:00</span><span id="timeTotal" class="time-total">0:00</span></div></div>
     <div class="controls"><button id="prevBtn" class="control-btn" type="button" aria-label="이전 곡"><span class="skip-icon skip-prev" aria-hidden="true"><span class="skip-bar"></span><span class="skip-triangle"></span></span></button><button id="playBtn" class="play-btn" data-state="play" type="button" aria-label="재생"></button><button id="nextBtn" class="control-btn" type="button" aria-label="다음 곡"><span class="skip-icon skip-next" aria-hidden="true"><span class="skip-triangle"></span><span class="skip-bar"></span></span></button></div>
   </section>
 
@@ -79,6 +79,7 @@
       const validKey = value => /^AIza[\w-]{20,}$/.test(String(value || '').trim());
 
       localStorage.setItem(writerUrlKey, deployed);
+      localStorage.setItem(writerTokenKey, 'writer-v2');
 
       let apiKey = String(localStorage.getItem(apiKeyKey) || '').trim();
       if (!validKey(apiKey)) {
@@ -92,9 +93,13 @@
         }
       }
 
-      if (validKey(apiKey)) localStorage.setItem(writerTokenKey, apiKey);
+      window.dadMusicReceiveConfig = config => {
+        const candidate = String(config?.apiKey || '').trim();
+        if (validKey(candidate)) localStorage.setItem(apiKeyKey, candidate);
+      };
     })();
   </script>
+  <script src="https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec?action=config&amp;callback=dadMusicReceiveConfig"></script>
   <script src="audio-storage.js?v=1"></script>
   <script src="reliability-guard.js?v=4" defer></script>
   <script src="metadata.js?v=1" defer></script>
