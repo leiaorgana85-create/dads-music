@@ -69,6 +69,15 @@
     });
   }
 
+  function resetBridge() {
+    if (iframe) {
+      try { iframe.remove(); } catch {}
+    }
+    iframe = null;
+    bridgeOrigin = '';
+    readyError = null;
+  }
+
   function ensureIframe() {
     if (iframe) return;
     nonce = makeToken(20);
@@ -163,6 +172,12 @@
       if (data.ok) pending.resolve(true);
       else pending.reject(new Error('Dad Music rejection writer failed'));
     }
+  });
+
+  window.addEventListener('online', () => {
+    if (ready) return;
+    resetBridge();
+    ensureIframe();
   });
 
   window.fetch = function(input, init = {}) {
