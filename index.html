@@ -76,8 +76,10 @@
   <script>
     (() => {
       const key = 'dadsMusicWriterUrl';
-      const deployed = 'https://script.google.com/macros/s/AKfycbzIJiEs8am_cuc4Yar1cb-8CIiN8tnJv_tm2Np6_a3t-_muPZnesL25HAnDzEfQSHpb/exec';
-      if (!localStorage.getItem(key)) localStorage.setItem(key, deployed);
+      const legacy = 'https://script.google.com/macros/s/AKfycbzIJiEs8am_cuc4Yar1cb-8CIiN8tnJv_tm2Np6_a3t-_muPZnesL25HAnDzEfQSHpb/exec';
+      const deployed = 'https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec';
+      const stored = String(localStorage.getItem(key) || '').trim();
+      if (!stored || stored === legacy) localStorage.setItem(key, deployed);
     })();
   </script>
   <script src="audio-storage.js?v=1"></script>
