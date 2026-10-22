@@ -3,8 +3,6 @@
 
   const DEFAULT_FOLDER_ID = '1c7Dj_Dnysp8YSIO4QQqUJ-fLA4nbqTec';
   const API_KEY_STORAGE = 'dadsMusicPublicApiKey';
-  const WRITER_URL_KEY = 'dadsMusicWriterUrl';
-  const WRITER_TOKEN_KEY = 'dadsMusicWriterToken';
   const DB_NAME = 'dads-music-db';
   const DB_VERSION = 1;
   const SETTINGS_KEY = 'dadsMusicSettings';
@@ -19,7 +17,7 @@
   const els = Object.fromEntries([
     'syncBtn','settingsBtn','statusTitle','statusDetail','trackCount','trackList','emptyState','player','nowTitle','nowStatus',
     'shuffleBtn','repeatBtn','seek','timeCurrent','timeTotal','prevBtn','playBtn','nextBtn','audio',
-    'settingsDialog','apiKeyInput','folderIdInput','writerUrlInput','writerTokenInput','offlineStats','storageEstimate','driveStorageStatus','rejectedStats',
+    'settingsDialog','apiKeyInput','folderIdInput','offlineStats','storageEstimate','driveStorageStatus','rejectedStats',
     'deleteOfflineBtn','factoryResetBtn','storageResult','saveSettingsBtn'
   ].map(id => [id, document.getElementById(id)]));
 
@@ -64,12 +62,29 @@
     return /^AIza[\w-]{20,}$/.test(String(value || '').trim());
   }
 
-  function writerConfigured() { return !!window.DadsMusicBridge; }
+  let bridgeLoad = null;
+  function ensureBridge() {
+    if (window.DadsMusicBridge) return Promise.resolve(window.DadsMusicBridge);
+    if (!bridgeLoad) bridgeLoad = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = './dad-writer-bridge.js?v=2';
+      script.onload = () => {
+        if (window.DadsMusicBridge) resolve(window.DadsMusicBridge);
+        else { bridgeLoad = null; script.remove(); reject(new Error('연결 모듈을 불러오지 못했습니다.')); }
+      };
+      script.onerror = () => { bridgeLoad = null; script.remove(); reject(new Error('연결 모듈을 불러오지 못했습니다. 업데이트를 다시 눌러 주세요.')); };
+      document.head.appendChild(script);
+    });
+    return bridgeLoad;
+  }
+
 
   function cleanLegacyAuthState() {
     localStorage.removeItem('dadsMusicGoogleAccessToken');
     localStorage.removeItem('dadsMusicGoogleAuthorized');
     localStorage.removeItem('dadsMusicGoogleForceConsent');
+    localStorage.removeItem('dadsMusicWriterUrl');
+    localStorage.removeItem('dadsMusicWriterToken');
   }
 
   function cleanTitle(name = '') {
@@ -336,7 +351,7 @@
     if (els.driveStorageStatus) {
       if (!navigator.onLine) els.driveStorageStatus.textContent = '오프라인';
       else if (!validApiKey()) els.driveStorageStatus.textContent = 'API 키 필요';
-      else els.driveStorageStatus.textContent = writerConfigured() ? '연결됨 · 제외 기록 설정됨' : '연결됨 · 제외 기록 미설정';
+      else els.driveStorageStatus.textContent = 'API 키 저장됨 · 제외 기록 자동 연결';
     }
   }
 
@@ -400,7 +415,7 @@
   }
 
   async function driveFetch(url, options = {}) {
-    if (!validApiKey()) await window.DadsMusicBridge.ensureReady();
+    if (!validApiKey()) await (await ensureBridge()).ensureReady();
     const key = readApiKey();
     if (!validApiKey(key)) throw new Error('설정에서 Google Drive API 키를 한 번 저장해 주세요.');
     const target = new URL(url);
@@ -489,8 +504,9 @@
 
   async function flushPendingRejections() {
     const pending = loadPending();
-    if (!pending.length || !navigator.onLine || !writerConfigured()) return;
-    for (const row of pending) await window.DadsMusicBridge.sendReject(row.id);
+    if (!pending.length || !navigator.onLine) return;
+    const bridge = await ensureBridge();
+    for (const row of pending) await bridge.sendReject(row.id);
   }
 
   function confirmPendingFromRemote(remoteRows) {
@@ -604,10 +620,6 @@
 
     if (!navigator.onLine) {
       updateStatus('이 노래를 뺐습니다', '제외 기록은 인터넷 연결 후 자동으로 전송합니다.');
-      return;
-    }
-    if (!writerConfigured()) {
-      updateStatus('이 노래를 뺐습니다', '휴대폰에서는 다시 받지 않습니다. 제외 기록 전송 설정이 아직 필요합니다.');
       return;
     }
 

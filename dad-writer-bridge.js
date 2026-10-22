@@ -31,7 +31,7 @@
     for (const entry of pending.values()) entry.reject(new Error('연결이 갱신되었습니다. 업데이트를 다시 눌러 주세요.'));
     pending.clear();
   }
-  function ensureReady() {
+  function startBridge() {
     // Renew before the server's 10-minute session expiry; offline playback needs no bridge.
     if (readyAt && Date.now() - readyAt > 8 * 60 * 1000) reset();
     if (readyPromise) return readyPromise;
@@ -48,8 +48,16 @@
       const waiter = settle;
       reset();
       waiter?.reject(new Error('제외 기록 연결 시간이 초과되었습니다. 업데이트를 다시 눌러 주세요.'));
-    }, 15000);
+    }, 30000);
     return readyPromise;
+  }
+  async function ensureReady() {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try { return await startBridge(); }
+      catch (error) {
+        if (!navigator.onLine || attempt === 1) throw error;
+      }
+    }
   }
   window.addEventListener('message', event => {
     const data = event.data;
@@ -90,7 +98,7 @@
         pending.delete(requestId);
         reject(new Error('제외 기록 전송 시간이 초과되었습니다.'));
         reset();
-      }, 15000);
+      }, 30000);
       pending.set(requestId, { id,
         resolve: value => { clearTimeout(timeout); resolve(value); },
         reject: error => { clearTimeout(timeout); reject(error); }
