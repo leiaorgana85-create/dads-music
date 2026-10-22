@@ -34,12 +34,24 @@ jobs:
           test -n "$BROWSER"
 
           "$BROWSER" --headless=new --no-sandbox --disable-gpu --virtual-time-budget=30000 --dump-dom "$TEST_URL" > /tmp/dom.html 2>/tmp/chrome.err
+          python3 - <<'PY'
+          import html, re
+          text=open('/tmp/dom.html',encoding='utf-8').read()
+          tag=re.search(r'<html[^>]*>',text,re.I)
+          status=re.search(r'<div id="status">(.*?)</div>',text,re.I|re.S)
+          print('HTML_TAG=' + (tag.group(0) if tag else 'MISSING'))
+          if status:
+              value=re.sub(r'<[^>]+>','',status.group(1))
+              print('STATUS=' + html.unescape(value).strip().replace('\n',' | '))
+          else:
+              print('STATUS=MISSING')
+          PY
           HTML_TAG=$(grep -Eo '<html[^>]*>' /tmp/dom.html | head -1 || true)
           if printf '%s' "$HTML_TAG" | grep -q 'data-test-result="pass"'; then
             echo 'REAL_ORIGIN_BRIDGE=PASS'
           else
             echo 'REAL_ORIGIN_BRIDGE=FAIL'
-            printf '%s\n' "$HTML_TAG"
-            grep -Eo '<div id="status">[^<]*' /tmp/dom.html | head -1 || true
+            echo '--- chrome stderr tail ---'
+            tail -60 /tmp/chrome.err || true
             exit 1
           fi
