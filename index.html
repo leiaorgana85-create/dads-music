@@ -43,31 +43,28 @@
       <section class="settings-section settings-first">
         <div class="settings-section-title">저장공간</div>
         <div class="settings-row"><span class="settings-row-label">오프라인 오디오</span><span id="offlineStats" class="settings-row-value">0개 · 0 MB</span></div>
-        <div class="settings-storage-path">정확한 오디오 저장소: <strong>dads-music-audio-db → audio</strong></div>
-        <div class="settings-row"><span class="settings-row-label">브라우저 저장공간 추정치</span><span id="storageEstimate" class="settings-row-value">계산 중…</span></div>
-        <p class="help settings-note">오프라인 오디오는 정확한 값입니다. 브라우저 저장공간은 앱 캐시와 데이터베이스 오버헤드를 포함할 수 있습니다.</p>
+        <div class="settings-row"><span class="settings-row-label">브라우저 저장공간</span><span id="storageEstimate" class="settings-row-value">계산 중…</span></div>
         <div class="settings-storage-actions"><button id="deleteOfflineBtn" type="button" class="button secondary full-width">모든 오프라인 오디오 삭제</button></div>
-        <p class="help settings-note">Google Drive 원본, 음악 목록, 제외한 노래 기록은 유지됩니다.</p><p id="storageResult" class="settings-storage-result"></p>
+        <p id="storageResult" class="settings-storage-result"></p>
       </section>
 
       <section class="settings-section">
         <div class="settings-section-title">Google Drive</div>
-        <div class="settings-row"><span class="settings-row-label">DADS MUSIC 폴더</span><span id="driveStorageStatus" class="settings-row-value">설정됨</span></div>
+        <div class="settings-row"><span class="settings-row-label">연결 상태</span><span id="driveStorageStatus" class="settings-row-value">확인 중…</span></div>
         <div class="settings-row"><span class="settings-row-label">제외한 노래</span><span id="rejectedStats" class="settings-row-value">0개</span></div>
-        <p class="help settings-note">음악 업데이트는 공개 DADS MUSIC 폴더를 읽고 새 음악을 저장합니다. ‘빼기’를 누른 노래는 즉시 이 기기에서 차단되고, 제외 기록은 별도 기록 서비스로 전송되어 <strong>REJECTED_SONGS.csv</strong>에 남습니다.</p>
-        <p class="help settings-note"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
+        <label class="field"><span>Google Drive API 키</span><input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" /></label>
+        <button id="saveSettingsBtn" type="button" class="button secondary full-width">API 키 저장</button>
+        <input id="writerUrlInput" type="hidden" />
+        <input id="writerTokenInput" type="hidden" />
       </section>
 
       <details class="settings-section settings-advanced">
-        <summary>고급 설정</summary><p class="help">초기 설정 후 일반적으로 변경할 필요가 없습니다.</p>
-        <label class="field"><span>Google Drive API 키</span><input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" /></label>
+        <summary>고급 설정</summary>
         <label class="field"><span>Google Drive 폴더 ID</span><input id="folderIdInput" type="text" autocomplete="off" /></label>
-        <label class="field"><span>제외 기록 주소</span><input id="writerUrlInput" type="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec" /></label>
-        <label class="field"><span>제외 기록 토큰</span><input id="writerTokenInput" type="password" autocomplete="off" spellcheck="false" /></label>
-        <button id="saveSettingsBtn" type="button" class="button secondary full-width">고급 설정 저장</button>
+        <button type="button" class="button secondary full-width" onclick="document.getElementById('saveSettingsBtn').click()">폴더 설정 저장</button>
       </details>
 
-      <details class="settings-section settings-troubleshooting"><summary>문제 해결</summary><button id="factoryResetBtn" type="button" class="danger-btn">이 기기에서 아빠 음악 초기화</button><p class="help settings-note">이 기기의 Dad’s Music 로컬 데이터만 지웁니다. Google Drive 파일과 Drive의 REJECTED_SONGS.csv는 삭제되지 않습니다.</p></details>
+      <details class="settings-section settings-troubleshooting"><summary>문제 해결</summary><button id="factoryResetBtn" type="button" class="danger-btn">이 기기에서 아빠 음악 초기화</button></details>
       <div class="dialog-actions"><button value="cancel" class="button secondary">닫기</button></div>
     </form>
   </dialog>
@@ -75,11 +72,27 @@
   <audio id="audio" preload="metadata" playsinline></audio>
   <script>
     (() => {
-      const key = 'dadsMusicWriterUrl';
-      const legacy = 'https://script.google.com/macros/s/AKfycbzIJiEs8am_cuc4Yar1cb-8CIiN8tnJv_tm2Np6_a3t-_muPZnesL25HAnDzEfQSHpb/exec';
+      const apiKeyKey = 'dadsMusicPublicApiKey';
+      const writerUrlKey = 'dadsMusicWriterUrl';
+      const writerTokenKey = 'dadsMusicWriterToken';
       const deployed = 'https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec';
-      const stored = String(localStorage.getItem(key) || '').trim();
-      if (!stored || stored === legacy) localStorage.setItem(key, deployed);
+      const validKey = value => /^AIza[\w-]{20,}$/.test(String(value || '').trim());
+
+      localStorage.setItem(writerUrlKey, deployed);
+
+      let apiKey = String(localStorage.getItem(apiKeyKey) || '').trim();
+      if (!validKey(apiKey)) {
+        const shared = [
+          localStorage.getItem('familyPlayersDriveApiKey'),
+          localStorage.getItem('parentsPlayerPublicApiKey')
+        ].map(value => String(value || '').trim()).find(validKey) || '';
+        if (shared) {
+          apiKey = shared;
+          localStorage.setItem(apiKeyKey, apiKey);
+        }
+      }
+
+      if (validKey(apiKey)) localStorage.setItem(writerTokenKey, apiKey);
     })();
   </script>
   <script src="audio-storage.js?v=1"></script>
