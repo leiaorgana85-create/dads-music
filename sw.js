@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dads-music-v27';
+const CACHE_NAME = 'dads-music-v28';
 const CACHE_PREFIX = 'dads-music-v';
 const MEDIA_CONTROLS_JS = './media-session-controls.js?v=4';
 const SHELL = [
