@@ -11,7 +11,7 @@
   "theme_color": "#111111",
   "icons": [
     {
-      "src": "./dad-icon.png?v=3",
+      "src": "./dad-icon.png?v=4",
       "type": "image/png",
       "purpose": "any",
       "sizes": "1254x1254"
