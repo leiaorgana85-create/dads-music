@@ -11,9 +11,10 @@
   "theme_color": "#111111",
   "icons": [
     {
-      "src": "/lexi-assets/music-logo.png?v=2",
+      "src": "./dad-icon.png?v=3",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any",
+      "sizes": "1254x1254"
     }
   ]
 }
