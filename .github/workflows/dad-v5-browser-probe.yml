@@ -1,0 +1,43 @@
+name: dad-v5-browser-probe
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify v5 from real GitHub Pages origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
+          TEST_URL='https://leiaorgana85-create.github.io/dads-music/writer-v5-final-test.html'
+
+          test "$(curl -sS -L --max-time 30 "$BASE?mode=health")" = 'dad-writer-v5'
+          echo 'HEALTH=PASS'
+
+          for i in $(seq 1 24); do
+            if curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'
+          echo 'PAGES_TEST=LIVE'
+
+          BROWSER=''
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$candidate" >/dev/null 2>&1; then BROWSER="$candidate"; break; fi
+          done
+          test -n "$BROWSER"
+
+          "$BROWSER" --headless=new --no-sandbox --disable-gpu --virtual-time-budget=30000 --dump-dom "$TEST_URL" > /tmp/dom.html 2>/tmp/chrome.err
+          if grep -q 'FINAL=PASS' /tmp/dom.html; then
+            echo 'REAL_ORIGIN_BRIDGE=PASS'
+          else
+            echo 'REAL_ORIGIN_BRIDGE=FAIL'
+            grep -o 'FINAL=[A-Z]*[^<]*' /tmp/dom.html | head -1 || true
+            exit 1
+          fi
