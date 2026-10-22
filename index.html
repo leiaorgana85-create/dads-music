@@ -70,36 +70,7 @@
   </dialog>
 
   <audio id="audio" preload="metadata" playsinline></audio>
-  <script>
-    (() => {
-      const apiKeyKey = 'dadsMusicPublicApiKey';
-      const writerUrlKey = 'dadsMusicWriterUrl';
-      const writerTokenKey = 'dadsMusicWriterToken';
-      const deployed = 'https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec';
-      const validKey = value => /^AIza[\w-]{20,}$/.test(String(value || '').trim());
-
-      localStorage.setItem(writerUrlKey, deployed);
-      localStorage.setItem(writerTokenKey, 'writer-v2');
-
-      let apiKey = String(localStorage.getItem(apiKeyKey) || '').trim();
-      if (!validKey(apiKey)) {
-        const shared = [
-          localStorage.getItem('familyPlayersDriveApiKey'),
-          localStorage.getItem('parentsPlayerPublicApiKey')
-        ].map(value => String(value || '').trim()).find(validKey) || '';
-        if (shared) {
-          apiKey = shared;
-          localStorage.setItem(apiKeyKey, apiKey);
-        }
-      }
-
-      window.dadMusicReceiveConfig = config => {
-        const candidate = String(config?.apiKey || '').trim();
-        if (validKey(candidate)) localStorage.setItem(apiKeyKey, candidate);
-      };
-    })();
-  </script>
-  <script src="https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec?action=config&amp;callback=dadMusicReceiveConfig"></script>
+  <script src="dad-writer-bridge.js?v=1"></script>
   <script src="audio-storage.js?v=1"></script>
   <script src="reliability-guard.js?v=4" defer></script>
   <script src="metadata.js?v=1" defer></script>
