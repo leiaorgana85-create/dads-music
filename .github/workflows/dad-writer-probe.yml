@@ -1,4 +1,4 @@
-name: dad-writer-endpoint-probe
+name: dad-writer-v5-endpoint-probe
 on:
   push:
     branches: [main]
@@ -10,24 +10,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe deployed Apps Script config endpoint
+      - name: Probe deployed Apps Script v5 endpoint
         shell: bash
         run: |
           set -euo pipefail
-          URL='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec?action=config&callback=dadMusicReceiveConfig&probe=github'
-          HTTP_CODE=$(curl -sS -L --max-time 30 -D /tmp/headers -o /tmp/body -w '%{http_code}' "$URL")
-          echo "HTTP_CODE=$HTTP_CODE"
-          echo "CONTENT_TYPE=$(grep -i '^content-type:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2-)"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo 'RESULT=HTTP_FAILURE'
-            exit 1
-          fi
-          if grep -Eq '^dadMusicReceiveConfig\(\{"apiKey":"AIza[A-Za-z0-9_-]{20,}"' /tmp/body; then
-            echo 'RESULT=JSONP_VALID'
-          elif grep -q 'dadMusicReceiveConfig' /tmp/body; then
-            echo 'RESULT=CALLBACK_PRESENT_BUT_CONFIG_INVALID'
-            exit 1
-          else
-            echo 'RESULT=NOT_JSONP'
-            exit 1
-          fi
+          BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
+
+          HEALTH_CODE=$(curl -sS -L --max-time 30 -o /tmp/health -w '%{http_code}' "$BASE?mode=health")
+          test "$HEALTH_CODE" = '200'
+          test "$(cat /tmp/health)" = 'dad-writer-v5'
+          echo 'HEALTH=PASS'
+
+          NONCE='githubProbeNonce20261022abc123'
+          BRIDGE_CODE=$(curl -sS -L --max-time 30 -D /tmp/bridge_headers -o /tmp/bridge -w '%{http_code}' "$BASE?mode=bridge&nonce=$NONCE")
+          test "$BRIDGE_CODE" = '200'
+          grep -q 'Dad Music Bridge' /tmp/bridge
+          grep -q 'dad-music-config' /tmp/bridge
+          grep -q 'google.script.run' /tmp/bridge
+          grep -q 'https://leiaorgana85-create.github.io' /tmp/bridge
+          grep -Eq '"apiKey":"AIza[A-Za-z0-9_-]{20,}"' /tmp/bridge
+          grep -q "$NONCE" /tmp/bridge
+          echo 'BRIDGE=PASS'
