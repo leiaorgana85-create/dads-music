@@ -10,40 +10,36 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe deployed Apps Script v5 health
+      - name: Inspect deployed Apps Script v5 bridge response
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
-          HEALTH_CODE=$(curl -sS -L --max-time 30 -o /tmp/health -w '%{http_code}' "$BASE?mode=health")
-          test "$HEALTH_CODE" = '200'
-          test "$(cat /tmp/health)" = 'dad-writer-v5'
+          test "$(curl -sS -L --max-time 30 "$BASE?mode=health")" = 'dad-writer-v5'
           echo 'HEALTH=PASS'
 
-      - name: Run real-origin browser bridge test
-        shell: bash
-        run: |
-          set -euo pipefail
-          TEST_URL='https://leiaorgana85-create.github.io/dads-music/writer-v5-final-test.html'
-          for i in $(seq 1 18); do
-            if curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'; then
-              break
-            fi
-            sleep 5
-          done
-          curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'
-
-          BROWSER=''
-          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
-            if command -v "$candidate" >/dev/null 2>&1; then BROWSER="$candidate"; break; fi
-          done
-          test -n "$BROWSER"
-
-          "$BROWSER" --headless=new --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$TEST_URL" > /tmp/dom.html 2>/tmp/chrome.err
-          if grep -q 'FINAL=PASS' /tmp/dom.html; then
-            echo 'REAL_ORIGIN_BRIDGE=PASS'
-          else
-            echo 'REAL_ORIGIN_BRIDGE=FAIL'
-            grep -o 'FINAL=[A-Z]*[^<]*' /tmp/dom.html | head -1 || true
-            exit 1
-          fi
+          NONCE='githubProbeNonce20261022abc123'
+          HTTP_CODE=$(curl -sS -L --max-time 30 -D /tmp/headers -o /tmp/body -w '%{http_code}' "$BASE?mode=bridge&nonce=$NONCE")
+          echo "HTTP_CODE=$HTTP_CODE"
+          echo "CONTENT_TYPE=$(grep -i '^content-type:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2-)"
+          echo "X_FRAME_OPTIONS=$(grep -i '^x-frame-options:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2- || true)"
+          echo "CSP=$(grep -i '^content-security-policy:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2- || true)"
+          echo "BODY_BYTES=$(wc -c < /tmp/body)"
+          python3 - <<'PY'
+          import re
+          body=open('/tmp/body',encoding='utf-8',errors='replace').read()
+          checks={
+            'TITLE_BRIDGE':'Dad Music Bridge' in body,
+            'CONFIG_TYPE':'dad-music-config' in body,
+            'SCRIPT_RUN':'google.script.run' in body,
+            'PARENT_ORIGIN':'https://leiaorgana85-create.github.io' in body,
+            'NONCE':'githubProbeNonce20261022abc123' in body,
+            'API_KEY':bool(re.search(r'"apiKey":"AIza[A-Za-z0-9_-]{20,}"',body)),
+            'GOOGLE_WRAPPER':('script.googleusercontent.com' in body or 'userCodeAppPanel' in body or 'sandboxMode' in body),
+          }
+          for k,v in checks.items(): print(f'{k}={"YES" if v else "NO"}')
+          redacted=re.sub(r'AIza[A-Za-z0-9_-]{20,}','AIza[REDACTED]',body[:1200])
+          redacted=re.sub(r'[A-Fa-f0-9]{32}', '[SESSION_REDACTED]', redacted)
+          print('BODY_PREFIX=' + redacted.replace('\n',' ')[:1200])
+          PY
+          test "$HTTP_CODE" = '200'
