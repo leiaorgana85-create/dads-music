@@ -73,6 +73,13 @@
   </dialog>
 
   <audio id="audio" preload="metadata" playsinline></audio>
+  <script>
+    (() => {
+      const key = 'dadsMusicWriterUrl';
+      const deployed = 'https://script.google.com/macros/s/AKfycbzIJiEs8am_cuc4Yar1cb-8CIiN8tnJv_tm2Np6_a3t-_muPZnesL25HAnDzEfQSHpb/exec';
+      if (!localStorage.getItem(key)) localStorage.setItem(key, deployed);
+    })();
+  </script>
   <script src="audio-storage.js?v=1"></script>
   <script src="reliability-guard.js?v=4" defer></script>
   <script src="metadata.js?v=1" defer></script>
