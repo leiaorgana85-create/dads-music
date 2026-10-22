@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dad Writer v5 Final Test</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:620px;margin:40px auto;padding:0 18px;line-height:1.45}#status{font-weight:700;margin-top:18px;white-space:pre-wrap}</style></head><body><h2>Dad Writer v5 — Automated Test</h2><div id="status">STARTING</div><script>
+<html data-test-result="running"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dad Writer v5 Final Test</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:620px;margin:40px auto;padding:0 18px;line-height:1.45}#status{font-weight:700;margin-top:18px;white-space:pre-wrap}</style></head><body><h2>Dad Writer v5 — Automated Test</h2><div id="status">STARTING</div><script>
 (() => {
   'use strict';
   const WRITER='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec';
@@ -19,7 +19,8 @@
   function allowed(origin){
     try{const u=new URL(origin);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname==='script.googleusercontent.com'||u.hostname.endsWith('.googleusercontent.com'));}catch{return false;}
   }
-  function fail(message){ status.textContent='FINAL=FAIL\n'+message; }
+  function fail(message){ document.documentElement.setAttribute('data-test-result','fail'); status.textContent='FINAL=FAIL\n'+message; }
+  function pass(){ document.documentElement.setAttribute('data-test-result','pass'); status.textContent='CONFIG=PASS\nDRIVE=PASS\nWRITE=PASS\nFINAL=PASS'; }
 
   window.addEventListener('message', async event => {
     if(event.source!==iframe.contentWindow||!allowed(event.origin)) return;
@@ -42,10 +43,10 @@
       return;
     }
     if(data.type==='dad-music-reject-result'&&data.nonce===nonce&&data.requestId===requestId){
-      if(configPassed&&drivePassed&&data.id===FILE_ID&&data.ok===true) status.textContent='CONFIG=PASS\nDRIVE=PASS\nWRITE=PASS\nFINAL=PASS';
+      if(configPassed&&drivePassed&&data.id===FILE_ID&&data.ok===true) pass();
       else fail('WRITE_FAILED');
     }
   });
-  setTimeout(()=>{if(!status.textContent.includes('FINAL=')) fail('TIMEOUT');},20000);
+  setTimeout(()=>{if(document.documentElement.getAttribute('data-test-result')==='running') fail('TIMEOUT');},20000);
 })();
 </script></body></html>
