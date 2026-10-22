@@ -10,39 +10,47 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect Apps Script sandbox relay structure
+      - name: Test direct Apps Script user panel path
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
-          NONCE='githubProbeNonce20261022abc123'
           test "$(curl -sS -L --max-time 30 "$BASE?mode=health")" = 'dad-writer-v5'
           echo 'HEALTH=PASS'
-          curl -sS -L --max-time 30 -o /tmp/body "$BASE?mode=bridge&nonce=$NONCE"
-          python3 - <<'PY'
-          import html,re
-          body=open('/tmp/body',encoding='utf-8',errors='replace').read()
-          print('POSTMESSAGE_COUNT=', body.count('postMessage'))
-          print('MESSAGE_LISTENER_COUNT=', body.count("addEventListener('message'") + body.count('addEventListener("message"'))
-          print('IFRAME_COUNT=', len(re.findall(r'<iframe\b',body,re.I)))
-          # Print only structural snippets and redact keys/session-looking tokens.
-          for label,pattern in [
-              ('IFRAME',r'<iframe\b[^>]{0,1800}>'),
-              ('USER_PANEL',r'.{0,350}userCodeAppPanel.{0,900}'),
-              ('POSTMESSAGE',r'.{0,250}postMessage.{0,500}'),
-              ('MESSAGE_EVENT',r'.{0,250}message.{0,500}')]:
-              m=re.search(pattern,body,re.I|re.S)
+
+          for n in one two; do
+            NONCE="githubProbe_${n}_20261022abcdef"
+            curl -sS -L --max-time 30 -o "/tmp/$n" "$BASE?mode=bridge&nonce=$NONCE"
+          done
+
+          python3 - <<'PY' > /tmp/panels.txt
+          import re
+          for n in ('one','two'):
+              body=open('/tmp/'+n,encoding='utf-8',errors='replace').read()
+              m=re.search(r"el\.src\s*=\s*'([^']*userCodeAppPanel)'",body)
               if not m:
-                  print(label+'=NONE'); continue
-              s=html.unescape(m.group(0))
-              s=re.sub(r'AIza[A-Za-z0-9_-]{20,}','AIza[REDACTED]',s)
-              s=re.sub(r'[A-Fa-f0-9]{32}','[SESSION_REDACTED]',s)
-              s=re.sub(r'\s+',' ',s)
-              print(label+'='+s[:1600])
-          # Find frame src hosts without printing sensitive query values.
-          from urllib.parse import urlparse
-          srcs=re.findall(r'<iframe\b[^>]*\bsrc=["\']([^"\']+)',body,re.I)
-          for i,src in enumerate(srcs[:10]):
-              p=urlparse(src)
-              print(f'IFRAME_SRC_{i}={p.scheme}://{p.netloc}{p.path}')
+                  raise SystemExit('panel URL not found: '+n)
+              url=m.group(1).replace('\\/','/')
+              print(n+'='+url)
+          PY
+
+          PANEL1=$(sed -n 's/^one=//p' /tmp/panels.txt)
+          PANEL2=$(sed -n 's/^two=//p' /tmp/panels.txt)
+          HOST1=$(python3 -c "from urllib.parse import urlparse; print(urlparse('$PANEL1').netloc)")
+          HOST2=$(python3 -c "from urllib.parse import urlparse; print(urlparse('$PANEL2').netloc)")
+          echo "SAME_PANEL_HOST=$([ "$HOST1" = "$HOST2" ] && echo YES || echo NO)"
+          echo "PANEL_PATH=$(python3 -c "from urllib.parse import urlparse; print(urlparse('$PANEL1').path)")"
+
+          CODE=$(curl -sS -L --max-time 30 -D /tmp/direct_headers -o /tmp/direct_body -w '%{http_code}' "$PANEL1")
+          echo "DIRECT_HTTP=$CODE"
+          echo "DIRECT_CONTENT_TYPE=$(grep -i '^content-type:' /tmp/direct_headers | tail -1 | tr -d '\r' | cut -d' ' -f2-)"
+          echo "DIRECT_BYTES=$(wc -c < /tmp/direct_body)"
+          python3 - <<'PY'
+          import re
+          body=open('/tmp/direct_body',encoding='utf-8',errors='replace').read()
+          print('DIRECT_HAS_BRIDGE=' + ('YES' if 'Dad Music Bridge' in body else 'NO'))
+          print('DIRECT_HAS_CONFIG=' + ('YES' if 'dad-music-config' in body else 'NO'))
+          print('DIRECT_HAS_SCRIPT_RUN=' + ('YES' if 'google.script.run' in body else 'NO'))
+          print('DIRECT_HAS_API_KEY=' + ('YES' if re.search(r'AIza[A-Za-z0-9_-]{20,}',body) else 'NO'))
+          print('DIRECT_PREFIX=' + re.sub(r'\s+',' ',re.sub(r'AIza[A-Za-z0-9_-]{20,}','AIza[REDACTED]',body[:500])))
           PY
