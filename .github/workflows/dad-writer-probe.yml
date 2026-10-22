@@ -10,24 +10,40 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe deployed Apps Script v5 endpoint
+      - name: Probe deployed Apps Script v5 health
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
-
           HEALTH_CODE=$(curl -sS -L --max-time 30 -o /tmp/health -w '%{http_code}' "$BASE?mode=health")
           test "$HEALTH_CODE" = '200'
           test "$(cat /tmp/health)" = 'dad-writer-v5'
           echo 'HEALTH=PASS'
 
-          NONCE='githubProbeNonce20261022abc123'
-          BRIDGE_CODE=$(curl -sS -L --max-time 30 -D /tmp/bridge_headers -o /tmp/bridge -w '%{http_code}' "$BASE?mode=bridge&nonce=$NONCE")
-          test "$BRIDGE_CODE" = '200'
-          grep -q 'Dad Music Bridge' /tmp/bridge
-          grep -q 'dad-music-config' /tmp/bridge
-          grep -q 'google.script.run' /tmp/bridge
-          grep -q 'https://leiaorgana85-create.github.io' /tmp/bridge
-          grep -Eq '"apiKey":"AIza[A-Za-z0-9_-]{20,}"' /tmp/bridge
-          grep -q "$NONCE" /tmp/bridge
-          echo 'BRIDGE=PASS'
+      - name: Run real-origin browser bridge test
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_URL='https://leiaorgana85-create.github.io/dads-music/writer-v5-final-test.html'
+          for i in $(seq 1 18); do
+            if curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsSL --max-time 15 "$TEST_URL" | grep -q 'Dad Writer v5 — Automated Test'
+
+          BROWSER=''
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$candidate" >/dev/null 2>&1; then BROWSER="$candidate"; break; fi
+          done
+          test -n "$BROWSER"
+
+          "$BROWSER" --headless=new --no-sandbox --disable-gpu --virtual-time-budget=25000 --dump-dom "$TEST_URL" > /tmp/dom.html 2>/tmp/chrome.err
+          if grep -q 'FINAL=PASS' /tmp/dom.html; then
+            echo 'REAL_ORIGIN_BRIDGE=PASS'
+          else
+            echo 'REAL_ORIGIN_BRIDGE=FAIL'
+            grep -o 'FINAL=[A-Z]*[^<]*' /tmp/dom.html | head -1 || true
+            exit 1
+          fi
