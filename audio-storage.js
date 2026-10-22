@@ -49,12 +49,13 @@
         if (!db.objectStoreNames.contains(AUDIO_STORE)) db.createObjectStore(AUDIO_STORE, { keyPath: 'id' });
       };
       request.onsuccess = () => {
-        audioDb = request.result;
-        audioDb.onversionchange = () => {
-          try { audioDb?.close(); } catch {}
-          audioDb = null;
+        const connection = request.result;
+        audioDb = connection;
+        connection.onversionchange = () => {
+          connection.close();
+          if (audioDb === connection) audioDb = null;
         };
-        resolve(audioDb);
+        resolve(connection);
       };
       request.onerror = () => reject(request.error || new Error('오프라인 오디오 저장공간을 열지 못했습니다.'));
       request.onblocked = () => reject(new Error('다른 아빠 음악 창을 닫고 다시 시도해 주세요.'));
@@ -66,9 +67,9 @@
       try {
         const db = await openAudioDb();
         const transaction = db.transaction(AUDIO_STORE, mode);
+        const committed = transactionPromise(transaction);
         const request = makeRequest(transaction.objectStore(AUDIO_STORE));
-        const result = await requestPromise(request);
-        if (mode === 'readwrite') await transactionPromise(transaction);
+        const [result] = await Promise.all([requestPromise(request), committed]);
         return result;
       } catch (error) {
         const name = String(error?.name || '');

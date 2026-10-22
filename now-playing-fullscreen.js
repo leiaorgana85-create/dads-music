@@ -209,7 +209,7 @@
   document.addEventListener('keydown', event => { if (event.key === 'Escape') closeFullscreen(); });
 
   const observer = new MutationObserver(() => {
-    if (player.classList.contains('hidden')) closeFullscreen();
+    if (player.classList.contains('hidden') && player.classList.contains('expanded')) closeFullscreen();
   });
   observer.observe(player, { attributes: true, attributeFilter: ['class'] });
 })();
