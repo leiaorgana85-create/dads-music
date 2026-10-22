@@ -1,9 +1,8 @@
 (() => {
   'use strict';
 
-  const DEFAULT_CLIENT_ID = '';
   const DEFAULT_FOLDER_ID = '1c7Dj_Dnysp8YSIO4QQqUJ-fLA4nbqTec';
-  const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
+  const API_KEY_STORAGE = 'dadsMusicPublicApiKey';
   const DB_NAME = 'dads-music-db';
   const DB_VERSION = 1;
   const SETTINGS_KEY = 'dadsMusicSettings';
@@ -11,13 +10,14 @@
   const REPEAT_KEY = 'dadsMusicRepeatMode';
   const SHUFFLE_KEY = 'dadsMusicShuffle';
   const REJECTED_KEY = 'dadsMusicRejectedLocal';
+  const PENDING_KEY = 'dadsMusicRejectedPending';
   const LEDGER_NAME = 'REJECTED_SONGS.csv';
   const SUPPORTED_MIMES = new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/flac', 'audio/x-flac', 'audio/wav', 'audio/x-wav']);
 
   const els = Object.fromEntries([
     'syncBtn','settingsBtn','statusTitle','statusDetail','trackCount','trackList','emptyState','player','nowTitle','nowStatus',
     'shuffleBtn','repeatBtn','seek','timeCurrent','timeTotal','prevBtn','playBtn','nextBtn','audio',
-    'settingsDialog','clientIdInput','folderIdInput','offlineStats','storageEstimate','driveStorageStatus','rejectedStats',
+    'settingsDialog','apiKeyInput','folderIdInput','offlineStats','storageEstimate','driveStorageStatus','rejectedStats',
     'deleteOfflineBtn','factoryResetBtn','storageResult','saveSettingsBtn'
   ].map(id => [id, document.getElementById(id)]));
 
@@ -26,8 +26,6 @@
   let audioRows = new Map();
   let currentId = null;
   let currentUrl = null;
-  let accessToken = null;
-  let tokenClient = null;
   let seekDragging = false;
   let operationBusy = false;
   let playbackGeneration = 0;
@@ -45,18 +43,48 @@
 
   function loadSettings() {
     try {
-      return {
-        clientId: DEFAULT_CLIENT_ID,
-        folderId: DEFAULT_FOLDER_ID,
-        ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
-      };
+      const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
+      return { folderId: String(stored.folderId || DEFAULT_FOLDER_ID).trim() || DEFAULT_FOLDER_ID };
     } catch {
-      return { clientId: DEFAULT_CLIENT_ID, folderId: DEFAULT_FOLDER_ID };
+      return { folderId: DEFAULT_FOLDER_ID };
     }
   }
 
   function saveSettings() {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ folderId: settings.folderId || DEFAULT_FOLDER_ID }));
+  }
+
+  function readApiKey() {
+    return String(localStorage.getItem(API_KEY_STORAGE) || '').trim();
+  }
+
+  function validApiKey(value = readApiKey()) {
+    return /^AIza[\w-]{20,}$/.test(String(value || '').trim());
+  }
+
+  let bridgeLoad = null;
+  function ensureBridge() {
+    if (window.DadsMusicBridge) return Promise.resolve(window.DadsMusicBridge);
+    if (!bridgeLoad) bridgeLoad = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = './dad-writer-bridge.js?v=2';
+      script.onload = () => {
+        if (window.DadsMusicBridge) resolve(window.DadsMusicBridge);
+        else { bridgeLoad = null; script.remove(); reject(new Error('연결 모듈을 불러오지 못했습니다.')); }
+      };
+      script.onerror = () => { bridgeLoad = null; script.remove(); reject(new Error('연결 모듈을 불러오지 못했습니다. 업데이트를 다시 눌러 주세요.')); };
+      document.head.appendChild(script);
+    });
+    return bridgeLoad;
+  }
+
+
+  function cleanLegacyAuthState() {
+    localStorage.removeItem('dadsMusicGoogleAccessToken');
+    localStorage.removeItem('dadsMusicGoogleAuthorized');
+    localStorage.removeItem('dadsMusicGoogleForceConsent');
+    localStorage.removeItem('dadsMusicWriterUrl');
+    localStorage.removeItem('dadsMusicWriterToken');
   }
 
   function cleanTitle(name = '') {
@@ -132,26 +160,28 @@
     }
   }
 
-  function loadRejected() {
+  function loadRows(key) {
     try {
-      const rows = JSON.parse(localStorage.getItem(REJECTED_KEY) || '[]');
+      const rows = JSON.parse(localStorage.getItem(key) || '[]');
       return Array.isArray(rows) ? rows.filter(row => row?.id) : [];
     } catch { return []; }
   }
 
-  function saveRejected(rows) {
+  function dedupeRows(rows) {
     const byId = new Map();
     for (const row of rows || []) {
       if (!row?.id) continue;
       const existing = byId.get(row.id);
       if (!existing || String(row.rejectedAt || '') < String(existing.rejectedAt || '')) byId.set(row.id, row);
     }
-    localStorage.setItem(REJECTED_KEY, JSON.stringify([...byId.values()]));
+    return [...byId.values()];
   }
 
-  function rejectedMap() {
-    return new Map(loadRejected().map(row => [row.id, row]));
-  }
+  function loadRejected() { return loadRows(REJECTED_KEY); }
+  function saveRejected(rows) { localStorage.setItem(REJECTED_KEY, JSON.stringify(dedupeRows(rows))); }
+  function loadPending() { return loadRows(PENDING_KEY); }
+  function savePending(rows) { localStorage.setItem(PENDING_KEY, JSON.stringify(dedupeRows(rows))); }
+  function rejectedMap() { return new Map(loadRejected().map(row => [row.id, row])); }
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -261,9 +291,7 @@
     return URL.createObjectURL(value);
   }
 
-  async function responseToAudioValue(response) {
-    return response.blob();
-  }
+  async function responseToAudioValue(response) { return response.blob(); }
 
   function rowIsCurrent(track, row) {
     if (!track || !row?.blob) return false;
@@ -275,9 +303,7 @@
     return true;
   }
 
-  function resetShuffleBag() {
-    shuffleBag = null;
-  }
+  function resetShuffleBag() { shuffleBag = null; }
 
   async function reloadLocal() {
     const rejected = rejectedMap();
@@ -298,21 +324,16 @@
     return library.reduce((sum, track) => sum + (rowIsCurrent(track, audioRows.get(track.id)) ? audioValueSize(audioRows.get(track.id).blob) : 0), 0);
   }
 
-  function currentOfflineCount() {
-    return library.filter(track => rowIsCurrent(track, audioRows.get(track.id))).length;
-  }
-
-  function storedAudioCount() {
-    return [...audioRows.values()].filter(row => audioValueSize(row?.blob) > 0).length;
-  }
-
-  function storedAudioBytes() {
-    return [...audioRows.values()].reduce((sum, row) => sum + audioValueSize(row?.blob), 0);
-  }
+  function currentOfflineCount() { return library.filter(track => rowIsCurrent(track, audioRows.get(track.id))).length; }
+  function storedAudioCount() { return [...audioRows.values()].filter(row => audioValueSize(row?.blob) > 0).length; }
+  function storedAudioBytes() { return [...audioRows.values()].reduce((sum, row) => sum + audioValueSize(row?.blob), 0); }
 
   function updateOfflineStats() {
     if (els.offlineStats) els.offlineStats.textContent = `${storedAudioCount()}개 · ${fmtBytes(storedAudioBytes())}`;
-    if (els.rejectedStats) els.rejectedStats.textContent = `${loadRejected().length}개`;
+    if (els.rejectedStats) {
+      const pending = loadPending().length;
+      els.rejectedStats.textContent = pending ? `${loadRejected().length}개 · 전송 대기 ${pending}개` : `${loadRejected().length}개`;
+    }
   }
 
   async function updateStorageEstimate() {
@@ -329,8 +350,8 @@
     await updateStorageEstimate();
     if (els.driveStorageStatus) {
       if (!navigator.onLine) els.driveStorageStatus.textContent = '오프라인';
-      else if (accessToken) els.driveStorageStatus.textContent = 'API 키 저장됨';
-      else els.driveStorageStatus.textContent = settings.clientId ? '설정됨' : 'OAuth 설정 필요';
+      else if (!validApiKey()) els.driveStorageStatus.textContent = 'API 키 필요';
+      else els.driveStorageStatus.textContent = 'API 키 저장됨 · 제외 기록 자동 연결';
     }
   }
 
@@ -393,54 +414,13 @@
     });
   }
 
-  async function loadGoogleIdentity() {
-    if (window.google?.accounts?.oauth2) return;
-    if (!navigator.onLine) throw new Error('인터넷에 연결한 후 다시 시도하세요.');
-    await new Promise((resolve, reject) => {
-      const existing = document.querySelector('script[data-google-identity]');
-      if (existing) {
-        existing.addEventListener('load', resolve, { once: true });
-        existing.addEventListener('error', reject, { once: true });
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.dataset.googleIdentity = '1';
-      script.onload = resolve;
-      script.onerror = () => reject(new Error('Google 로그인 기능을 불러오지 못했습니다.'));
-      document.head.appendChild(script);
-    });
-  }
-
-  async function ensureToken(interactive = true) {
-    if (accessToken) return accessToken;
-    if (!settings.clientId) throw new Error('Google OAuth Client ID 설정이 필요합니다.');
-    await loadGoogleIdentity();
-    return new Promise((resolve, reject) => {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: settings.clientId,
-        scope: DRIVE_SCOPES,
-        callback: response => {
-          if (response.error) return reject(new Error(response.error_description || response.error));
-          accessToken = response.access_token;
-          resolve(accessToken);
-        },
-        error_callback: err => reject(new Error(err?.message || 'Google Drive 연결이 필요합니다.'))
-      });
-      tokenClient.requestAccessToken({ prompt: interactive ? 'consent' : '' });
-    });
-  }
-
   async function driveFetch(url, options = {}) {
-    const token = await ensureToken(false).catch(() => ensureToken(true));
-    let response = await fetch(url, { ...options, signal: AbortSignal.timeout(90000), cache: 'no-store', headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
-    if (response.status === 401) {
-      accessToken = null;
-      const fresh = await ensureToken(true);
-      response = await fetch(url, { ...options, signal: AbortSignal.timeout(90000), cache: 'no-store', headers: { ...(options.headers || {}), Authorization: `Bearer ${fresh}` } });
-    }
+    if (!validApiKey()) await (await ensureBridge()).ensureReady();
+    const key = readApiKey();
+    if (!validApiKey(key)) throw new Error('설정에서 Google Drive API 키를 한 번 저장해 주세요.');
+    const target = new URL(url);
+    target.searchParams.set('key', key);
+    const response = await fetch(target.toString(), { ...options, signal: AbortSignal.timeout(90000), cache: 'no-store' });
     if (!response.ok) {
       let message = '';
       try { message = (await response.json())?.error?.message || ''; } catch {}
@@ -456,7 +436,7 @@
     const seenPages = new Set();
     do {
       const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-      const fields = encodeURIComponent('nextPageToken,incompleteSearch,files(id,name,mimeType,size,createdTime,modifiedTime,appProperties)');
+      const fields = encodeURIComponent('nextPageToken,incompleteSearch,files(id,name,mimeType,size,createdTime,modifiedTime)');
       const page = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
       const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=1000&orderBy=name${page}`;
       const json = await (await driveFetch(url)).json();
@@ -497,16 +477,6 @@
     return rows;
   }
 
-  function csvCell(value) {
-    return `"${String(value ?? '').replaceAll('"', '""')}"`;
-  }
-
-  function serializeRejectedCsv(rows) {
-    const sorted = [...rows].sort((a, b) => String(a.rejectedAt || '').localeCompare(String(b.rejectedAt || '')));
-    const lines = [['Rejected At', 'Song', 'Drive File ID'], ...sorted.map(row => [row.rejectedAt || '', row.name || '', row.id])];
-    return `\uFEFF${lines.map(line => line.map(csvCell).join(',')).join('\r\n')}\r\n`;
-  }
-
   async function readRemoteRejected(files) {
     const ledgers = files.filter(file => file.name === LEDGER_NAME);
     const byId = new Map();
@@ -529,62 +499,25 @@
         throw new Error('Google Drive의 제외 목록을 안전하게 읽지 못했습니다. 기존 음악과 제외 기록은 그대로 유지했습니다.');
       }
     }
-    return { rows: [...byId.values()], ledgerId: ledgers[0]?.id || null };
+    return [...byId.values()];
   }
 
-  async function createLedgerFile(rows) {
-    const metadata = {
-      name: LEDGER_NAME,
-      parents: [settings.folderId || DEFAULT_FOLDER_ID],
-      mimeType: 'text/csv',
-      appProperties: { owner: 'dads-music', kind: 'rejected-songs' }
-    };
-    const boundary = `dads_music_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const csv = serializeRejectedCsv(rows);
-    const body = [
-      `--${boundary}`,
-      'Content-Type: application/json; charset=UTF-8',
-      '',
-      JSON.stringify(metadata),
-      `--${boundary}`,
-      'Content-Type: text/csv; charset=UTF-8',
-      '',
-      csv,
-      `--${boundary}--`,
-      ''
-    ].join('\r\n');
-    const response = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-      method: 'POST',
-      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-      body
-    });
-    const file = await response.json();
-    if (!file?.id) throw new Error('Google Drive 제외 목록을 만들지 못했습니다.');
-    return file.id;
+  async function flushPendingRejections() {
+    const pending = loadPending();
+    if (!pending.length || !navigator.onLine) return;
+    const bridge = await ensureBridge();
+    for (const row of pending) await bridge.sendReject(row.id);
   }
 
-  async function writeLedgerFile(fileId, rows) {
-    const body = serializeRejectedCsv(rows);
-    await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'text/csv; charset=UTF-8' },
-      body
-    });
+  function confirmPendingFromRemote(remoteRows) {
+    if (!remoteRows.length) return;
+    const remoteIds = new Set(remoteRows.map(row => row.id));
+    savePending(loadPending().filter(row => !remoteIds.has(row.id)));
   }
 
-  async function syncRejectedLedger(files) {
-    const remote = await readRemoteRejected(files);
-    const merged = new Map(remote.rows.map(row => [row.id, row]));
-    for (const row of loadRejected()) {
-      const existing = merged.get(row.id);
-      if (!existing || !existing.rejectedAt) merged.set(row.id, row);
-    }
-    const rows = [...merged.values()];
+  function mergeRejected(remoteRows) {
+    const rows = dedupeRows([...remoteRows, ...loadRejected()]);
     saveRejected(rows);
-    if (!rows.length) return new Map();
-    let ledgerId = remote.ledgerId;
-    if (!ledgerId) ledgerId = await createLedgerFile(rows);
-    else await writeLedgerFile(ledgerId, rows);
     return new Map(rows.map(row => [row.id, row]));
   }
 
@@ -613,11 +546,14 @@
     els.syncBtn.textContent = '업데이트 중…';
     try {
       updateStatus('Google Drive 확인 중…', '새 음악과 제외한 노래 목록을 확인합니다.');
+      await flushPendingRejections().catch(error => console.warn('Pending rejection send failed', error));
       const files = await listDriveFolder();
       const rawAudio = files.filter(isAudioFile);
       if (!rawAudio.length) throw new Error('Drive에서 음악 파일을 찾지 못했습니다. 기존 오프라인 음악은 그대로 유지했습니다.');
 
-      const rejected = await syncRejectedLedger(files);
+      const remoteRejected = await readRemoteRejected(files);
+      confirmPendingFromRemote(remoteRejected);
+      const rejected = mergeRejected(remoteRejected);
       const incoming = rawAudio.filter(file => !rejected.has(file.id));
       const incomingIds = new Set(incoming.map(file => file.id));
       const oldById = new Map(library.map(track => [track.id, track]));
@@ -656,7 +592,8 @@
 
       await reloadLocal();
       if (failures.length) throw new Error(`${failures.length}개 다운로드 실패 · 업데이트를 다시 누르면 이어서 받습니다. ${failures[0]}`);
-      updateStatus('모든 음악이 최신 상태입니다', `${library.length}개 준비됨 · 제외한 노래 ${loadRejected().length}개`);
+      const pending = loadPending().length;
+      updateStatus('모든 음악이 최신 상태입니다', `${library.length}개 준비됨 · 제외한 노래 ${loadRejected().length}개${pending ? ` · 기록 대기 ${pending}개` : ''}`);
     } catch (error) {
       console.error(error);
       updateStatus('업데이트하지 못했습니다', error.message || '다시 시도해 주세요.');
@@ -672,28 +609,26 @@
   async function rejectTrackNow(id) {
     const track = library.find(item => item.id === id);
     if (!track) return;
-    const confirmed = confirm(`“${cleanTitle(track.name)}”을 목록에서 뺄까요?\n\n휴대폰에서 삭제되고 다음 음악 업데이트에서도 다시 받지 않습니다.`);
-    if (!confirmed) return;
+    if (!confirm(`“${cleanTitle(track.name)}”을 목록에서 뺄까요?\n\n휴대폰에서 삭제되고 다음 음악 업데이트에서도 다시 받지 않습니다.`)) return;
 
-    const rows = loadRejected();
-    if (!rows.some(row => row.id === id)) rows.push({ id, name: track.name, rejectedAt: new Date().toISOString() });
-    saveRejected(rows);
+    const row = { id, name: track.name, rejectedAt: new Date().toISOString() };
+    saveRejected([...loadRejected(), row]);
+    savePending([...loadPending(), row]);
 
     await removeLocalTrack(id);
     await reloadLocal();
 
     if (!navigator.onLine) {
-      updateStatus('이 노래를 뺐습니다', '다음 음악 업데이트 때 Google Drive의 제외 목록에 기록합니다.');
+      updateStatus('이 노래를 뺐습니다', '제외 기록은 인터넷 연결 후 자동으로 전송합니다.');
       return;
     }
 
     try {
-      const files = await listDriveFolder();
-      await syncRejectedLedger(files);
-      updateStatus('이 노래를 뺐습니다', 'Google Drive의 REJECTED_SONGS.csv에도 기록했습니다.');
+      await flushPendingRejections();
+      updateStatus('이 노래를 뺐습니다', '제외 기록을 전송했습니다. 다음 음악 업데이트에서 Drive 기록을 확인합니다.');
     } catch (error) {
       console.warn(error);
-      updateStatus('이 노래를 뺐습니다', '휴대폰에서는 제거했습니다. 다음 음악 업데이트 때 Drive 기록을 다시 시도합니다.');
+      updateStatus('이 노래를 뺐습니다', '휴대폰에서는 제거했습니다. 제외 기록은 다음 음악 업데이트 때 다시 전송합니다.');
     }
   }
 
@@ -797,9 +732,7 @@
     if (previousUrl) URL.revokeObjectURL(previousUrl);
 
     if ('mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: cleanTitle(track.name), artist: '아빠 음악', album: 'Dad\'s Music' });
-      } catch {}
+      try { navigator.mediaSession.metadata = new MediaMetadata({ title: cleanTitle(track.name), artist: '아빠 음악', album: 'Dad\'s Music' }); } catch {}
     }
   }
 
@@ -813,16 +746,12 @@
 
   function updateMediaPosition() {
     if (!('mediaSession' in navigator) || !Number.isFinite(els.audio.duration) || els.audio.duration <= 0) return;
-    try {
-      navigator.mediaSession.setPositionState({ duration: els.audio.duration, playbackRate: 1, position: Math.min(els.audio.currentTime || 0, els.audio.duration) });
-    } catch {}
+    try { navigator.mediaSession.setPositionState({ duration: els.audio.duration, playbackRate: 1, position: Math.min(els.audio.currentTime || 0, els.audio.duration) }); } catch {}
   }
 
   function playableQueue() { return library.filter(track => audioValueSize(audioRows.get(track.id)?.blob) > 0); }
 
-  function currentIndex() {
-    return playableQueue().findIndex(item => item.id === currentId);
-  }
+  function currentIndex() { return playableQueue().findIndex(item => item.id === currentId); }
 
   function shuffledIds() {
     const ids = playableQueue().map(item => item.id).filter(id => id !== currentId);
@@ -866,12 +795,10 @@
       els.audio.currentTime = 0;
       return;
     }
-
     if (shuffleEnabled && historyCursor > 0) {
       historyCursor -= 1;
       return playTrack(playbackHistory[historyCursor], { recordHistory: false });
     }
-
     const idx = currentIndex();
     if (idx > 0) return playTrack(queue[idx - 1].id);
     if (repeatMode === 'all') return playTrack(queue[queue.length - 1].id);
@@ -879,7 +806,7 @@
   }
 
   function openSettings() {
-    els.clientIdInput.value = settings.clientId || DEFAULT_CLIENT_ID;
+    if (els.apiKeyInput) els.apiKeyInput.value = readApiKey();
     els.folderIdInput.value = settings.folderId || DEFAULT_FOLDER_ID;
     updateSettingsStatus();
     if (els.storageResult) els.storageResult.textContent = '';
@@ -932,14 +859,15 @@
   });
 
   els.saveSettingsBtn.addEventListener('click', () => {
-    settings.clientId = els.clientIdInput.value.trim();
+    const nextKey = els.apiKeyInput ? els.apiKeyInput.value.trim() : readApiKey();
+    if (nextKey && !validApiKey(nextKey)) {
+      alert('Google Drive API 키 형식이 올바르지 않습니다. AIza로 시작하는 키를 확인해 주세요.');
+      return;
+    }
+    if (nextKey) localStorage.setItem(API_KEY_STORAGE, nextKey); else localStorage.removeItem(API_KEY_STORAGE);
     settings.folderId = els.folderIdInput.value.trim() || DEFAULT_FOLDER_ID;
     saveSettings();
-    accessToken = null;
-    tokenClient = null;
-    localStorage.removeItem('dadsMusicGoogleAccessToken');
-    localStorage.removeItem('dadsMusicGoogleAuthorized');
-    localStorage.removeItem('dadsMusicGoogleForceConsent');
+    cleanLegacyAuthState();
     updateStatus('고급 설정을 저장했습니다', '다음 음악 업데이트 때 새 설정을 사용합니다.');
     updateSettingsStatus();
   });
@@ -982,7 +910,10 @@
     playNext(true);
   });
 
-  window.addEventListener('online', () => updateStatus());
+  window.addEventListener('online', () => {
+    updateStatus();
+    if (loadPending().length) syncLibrary();
+  });
   window.addEventListener('offline', () => updateStatus('오프라인 상태입니다'));
 
   if ('mediaSession' in navigator) {
@@ -1009,6 +940,9 @@
   });
 
   async function boot() {
+    cleanLegacyAuthState();
+    removePosition();
+    saveSettings();
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.register('./sw.js');
@@ -1020,8 +954,10 @@
     await audioStorage().ready;
     db = await openDb();
     await reloadLocal();
-    if (navigator.onLine) updateStatus(library.length ? undefined : '처음에는 음악 업데이트를 눌러 주세요');
-    else updateStatus('오프라인 상태입니다');
+    if (navigator.onLine) {
+      if (loadPending().length) syncLibrary();
+      updateStatus(library.length ? undefined : '처음에는 음악 업데이트를 눌러 주세요');
+    } else updateStatus('오프라인 상태입니다');
   }
 
   boot().catch(error => {
