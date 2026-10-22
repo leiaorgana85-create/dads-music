@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dads-music-v27';
+const CACHE_NAME = 'dads-music-v25';
 const CACHE_PREFIX = 'dads-music-v';
 const MEDIA_CONTROLS_JS = './media-session-controls.js?v=4';
 const SHELL = [
@@ -6,10 +6,11 @@ const SHELL = [
   './index.html',
   './styles.css?v=3',
   './audio-storage.js?v=1',
+  './oauth-gesture.js?v=5',
   './reliability-guard.js?v=4',
   './metadata.js?v=1',
   './track-list-display.js?v=1',
-  './app.js?v=5',
+  './app.js?v=4',
   './playback-policy.js?v=3',
   './player-artwork.js?v=1',
   './now-playing-fullscreen.js?v=1',
@@ -18,7 +19,8 @@ const SHELL = [
   '/lexi-assets/music-logo.png?v=2',
   './reset.html',
   './privacy.html',
-  './terms.html'
+  './terms.html',
+  './oauth-home.html'
 ];
 
 self.addEventListener('install', event => {

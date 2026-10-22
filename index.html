@@ -15,25 +15,60 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div><div class="eyebrow">오프라인 음악</div><div class="title-row"><h1>아빠 음악</h1></div></div>
+      <div>
+        <div class="eyebrow">오프라인 음악</div>
+        <div class="title-row"><h1>아빠 음악</h1></div>
+      </div>
       <div class="top-actions">
-        <button id="settingsBtn" class="icon-btn" type="button" aria-label="설정"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.74v.5a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="설정">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.74v.5a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
         <button id="syncBtn" class="sync-btn" type="button">음악 업데이트</button>
       </div>
     </header>
 
-    <section class="status-card" aria-live="polite"><div id="statusTitle" class="status-title">저장된 목록을 불러오는 중…</div><div id="statusDetail" class="status-detail"></div></section>
+    <section class="status-card" aria-live="polite">
+      <div id="statusTitle" class="status-title">저장된 목록을 불러오는 중…</div>
+      <div id="statusDetail" class="status-detail"></div>
+    </section>
 
     <main>
-      <div class="section-head"><h2>전체</h2><div class="section-actions"><button id="shuffleBtn" class="option-btn list-shuffle-btn" type="button" aria-pressed="false">셔플</button><div id="trackCount" class="track-count">0개</div></div></div>
-      <div id="trackList" class="track-list"></div><div id="emptyState" class="empty-state hidden">아직 저장된 음악이 없습니다.</div>
+      <div class="section-head">
+        <h2>전체</h2>
+        <div class="section-actions">
+          <button id="shuffleBtn" class="option-btn list-shuffle-btn" type="button" aria-pressed="false">셔플</button>
+          <div id="trackCount" class="track-count">0개</div>
+        </div>
+      </div>
+      <div id="trackList" class="track-list"></div>
+      <div id="emptyState" class="empty-state hidden">아직 저장된 음악이 없습니다.</div>
     </main>
   </div>
 
   <section id="player" class="player hidden" aria-label="재생 중">
-    <div class="now-row"><div class="now-copy"><div id="nowTitle" class="now-title">—</div><div id="nowStatus" class="now-status">—</div></div><div class="player-options"><button id="repeatBtn" class="option-btn repeat-btn" type="button" aria-label="전체 반복">↻ 전체</button></div></div>
-    <div class="seek-wrap"><input id="seek" class="seek" type="range" min="0" max="1000" value="0" /><div class="seek-times"><span id="timeCurrent">0:00</span><span id="timeTotal">0:00</span></div></div>
-    <div class="controls"><button id="prevBtn" class="control-btn" type="button" aria-label="이전 곡"><span class="skip-icon skip-prev" aria-hidden="true"><span class="skip-bar"></span><span class="skip-triangle"></span></span></button><button id="playBtn" class="play-btn" data-state="play" type="button" aria-label="재생"></button><button id="nextBtn" class="control-btn" type="button" aria-label="다음 곡"><span class="skip-icon skip-next" aria-hidden="true"><span class="skip-triangle"></span><span class="skip-bar"></span></span></button></div>
+    <div class="now-row">
+      <div class="now-copy">
+        <div id="nowTitle" class="now-title">—</div>
+        <div id="nowStatus" class="now-status">—</div>
+      </div>
+      <div class="player-options">
+        <button id="repeatBtn" class="option-btn repeat-btn" type="button" aria-label="전체 반복">↻ 전체</button>
+      </div>
+    </div>
+
+    <div class="seek-wrap">
+      <input id="seek" class="seek" type="range" min="0" max="1000" value="0" />
+      <div class="seek-times"><span id="timeCurrent">0:00</span><span id="timeTotal">0:00</span></div>
+    </div>
+
+    <div class="controls">
+      <button id="prevBtn" class="control-btn" type="button" aria-label="이전 곡"><span class="skip-icon skip-prev" aria-hidden="true"><span class="skip-bar"></span><span class="skip-triangle"></span></span></button>
+      <button id="playBtn" class="play-btn" data-state="play" type="button" aria-label="재생"></button>
+      <button id="nextBtn" class="control-btn" type="button" aria-label="다음 곡"><span class="skip-icon skip-next" aria-hidden="true"><span class="skip-triangle"></span><span class="skip-bar"></span></span></button>
+    </div>
   </section>
 
   <dialog id="settingsDialog" class="dialog settings-dialog">
@@ -43,28 +78,36 @@
       <section class="settings-section settings-first">
         <div class="settings-section-title">저장공간</div>
         <div class="settings-row"><span class="settings-row-label">오프라인 오디오</span><span id="offlineStats" class="settings-row-value">0개 · 0 MB</span></div>
-        <div class="settings-row"><span class="settings-row-label">브라우저 저장공간</span><span id="storageEstimate" class="settings-row-value">계산 중…</span></div>
+        <div class="settings-storage-path">정확한 오디오 저장소: <strong>dads-music-audio-db → audio</strong></div>
+        <div class="settings-row"><span class="settings-row-label">브라우저 저장공간 추정치</span><span id="storageEstimate" class="settings-row-value">계산 중…</span></div>
+        <p class="help settings-note">오프라인 오디오는 정확한 값입니다. 브라우저 저장공간은 앱 캐시와 데이터베이스 오버헤드를 포함할 수 있습니다.</p>
         <div class="settings-storage-actions"><button id="deleteOfflineBtn" type="button" class="button secondary full-width">모든 오프라인 오디오 삭제</button></div>
+        <p class="help settings-note">Google Drive 원본, 음악 목록, 제외한 노래 기록은 유지됩니다.</p>
         <p id="storageResult" class="settings-storage-result"></p>
       </section>
 
       <section class="settings-section">
         <div class="settings-section-title">Google Drive</div>
-        <div class="settings-row"><span class="settings-row-label">연결 상태</span><span id="driveStorageStatus" class="settings-row-value">확인 중…</span></div>
+        <div class="settings-row"><span class="settings-row-label">DADS MUSIC 폴더</span><span id="driveStorageStatus" class="settings-row-value">설정됨</span></div>
         <div class="settings-row"><span class="settings-row-label">제외한 노래</span><span id="rejectedStats" class="settings-row-value">0개</span></div>
-        <label class="field"><span>Google Drive API 키</span><input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" /></label>
-        <button id="saveSettingsBtn" type="button" class="button secondary full-width">API 키 저장</button>
-        <input id="writerUrlInput" type="hidden" />
-        <input id="writerTokenInput" type="hidden" />
+        <p class="help settings-note">음악 업데이트는 새 음악을 내려받고 <strong>REJECTED_SONGS.csv</strong>의 노래는 다시 받지 않습니다. ‘빼기’를 누른 노래는 이 파일에도 기록됩니다.</p>
+        <p class="help settings-note"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
       </section>
 
       <details class="settings-section settings-advanced">
         <summary>고급 설정</summary>
+        <p class="help">일반적으로 변경할 필요가 없습니다.</p>
+        <label class="field"><span>Google OAuth Client ID</span><input id="clientIdInput" type="text" autocomplete="off" /></label>
         <label class="field"><span>Google Drive 폴더 ID</span><input id="folderIdInput" type="text" autocomplete="off" /></label>
-        <button type="button" class="button secondary full-width" onclick="document.getElementById('saveSettingsBtn').click()">폴더 설정 저장</button>
+        <button id="saveSettingsBtn" type="button" class="button secondary full-width">고급 설정 저장</button>
       </details>
 
-      <details class="settings-section settings-troubleshooting"><summary>문제 해결</summary><button id="factoryResetBtn" type="button" class="danger-btn">이 기기에서 아빠 음악 초기화</button></details>
+      <details class="settings-section settings-troubleshooting">
+        <summary>문제 해결</summary>
+        <button id="factoryResetBtn" type="button" class="danger-btn">이 기기에서 아빠 음악 초기화</button>
+        <p class="help settings-note">이 기기의 Dad’s Music 로컬 데이터만 지웁니다. Google Drive 파일과 Drive의 REJECTED_SONGS.csv는 삭제되지 않습니다.</p>
+      </details>
+
       <div class="dialog-actions"><button value="cancel" class="button secondary">닫기</button></div>
     </form>
   </dialog>
@@ -72,34 +115,25 @@
   <audio id="audio" preload="metadata" playsinline></audio>
   <script>
     (() => {
-      const apiKeyKey = 'dadsMusicPublicApiKey';
-      const writerUrlKey = 'dadsMusicWriterUrl';
-      const writerTokenKey = 'dadsMusicWriterToken';
-      const deployed = 'https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec';
-      const validKey = value => /^AIza[\w-]{20,}$/.test(String(value || '').trim());
-
-      localStorage.setItem(writerUrlKey, deployed);
-
-      let apiKey = String(localStorage.getItem(apiKeyKey) || '').trim();
-      if (!validKey(apiKey)) {
-        const shared = [
-          localStorage.getItem('familyPlayersDriveApiKey'),
-          localStorage.getItem('parentsPlayerPublicApiKey')
-        ].map(value => String(value || '').trim()).find(validKey) || '';
-        if (shared) {
-          apiKey = shared;
-          localStorage.setItem(apiKeyKey, apiKey);
-        }
+      const key = 'dadsMusicSettings';
+      const clientId = '675741289047-s8hjg27oe0mq69u9ti8dnmojo615fcjt.apps.googleusercontent.com';
+      const folderId = '1c7Dj_Dnysp8YSIO4QQqUJ-fLA4nbqTec';
+      try {
+        const current = JSON.parse(localStorage.getItem(key) || '{}') || {};
+        if (!String(current.clientId || '').trim()) current.clientId = clientId;
+        if (!String(current.folderId || '').trim()) current.folderId = folderId;
+        localStorage.setItem(key, JSON.stringify(current));
+      } catch {
+        localStorage.setItem(key, JSON.stringify({ clientId, folderId }));
       }
-
-      if (validKey(apiKey)) localStorage.setItem(writerTokenKey, apiKey);
     })();
   </script>
   <script src="audio-storage.js?v=1"></script>
+  <script src="oauth-gesture.js?v=5" defer></script>
   <script src="reliability-guard.js?v=4" defer></script>
   <script src="metadata.js?v=1" defer></script>
   <script src="track-list-display.js?v=1" defer></script>
-  <script src="app.js?v=5" defer></script>
+  <script src="app.js?v=4" defer></script>
   <script src="playback-policy.js?v=3" defer></script>
   <script src="player-artwork.js?v=1" defer></script>
 </body>
