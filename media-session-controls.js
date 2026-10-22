@@ -20,7 +20,7 @@
     for (const action of ['seekbackward', 'seekforward', 'seekto']) {
       try { navigator.mediaSession.setActionHandler(action, null); } catch {}
     }
-    try { navigator.mediaSession.setActionHandler('play', () => audio.play()); } catch {}
+    try { navigator.mediaSession.setActionHandler('play', () => { if (audio.paused) document.getElementById('playBtn')?.click(); }); } catch {}
     try { navigator.mediaSession.setActionHandler('pause', () => audio.pause()); } catch {}
     try { navigator.mediaSession.setActionHandler('previoustrack', previousTrack); } catch {}
     try { navigator.mediaSession.setActionHandler('nexttrack', nextTrack); } catch {}

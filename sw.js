@@ -1,33 +1,10 @@
-const CACHE_NAME = 'dads-music-v25';
 const CACHE_PREFIX = 'dads-music-v';
-const MEDIA_CONTROLS_JS = './media-session-controls.js?v=4';
-const SHELL = [
-  './',
-  './index.html',
-  './styles.css?v=3',
-  './audio-storage.js?v=1',
-  './oauth-gesture.js?v=5',
-  './reliability-guard.js?v=4',
-  './metadata.js?v=1',
-  './track-list-display.js?v=1',
-  './app.js?v=4',
-  './playback-policy.js?v=3',
-  './player-artwork.js?v=1',
-  './now-playing-fullscreen.js?v=1',
-  MEDIA_CONTROLS_JS,
-  './manifest.json?v=5',
-  '/lexi-assets/music-logo.png?v=2',
-  './reset.html',
-  './privacy.html',
-  './terms.html',
-  './oauth-home.html'
-];
+const CACHE_NAME = 'dads-music-v28';
+const SHELL = ['./', './index.html', './manifest.json?v=5', '/lexi-assets/music-logo.png?v=2', './styles.css?v=3', './dad-writer-bridge.js?v=1', './audio-storage.js?v=3', './metadata.js?v=1', './track-list-display.js?v=1', './app.js?v=7', './player-artwork.js?v=2', './media-session-controls.js?v=5', './now-playing-fullscreen.js?v=2', './reset.html', './privacy.html', './terms.html'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
-  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
-
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const names = await caches.keys();
@@ -35,37 +12,24 @@ self.addEventListener('activate', event => {
     await self.clients.claim();
   })());
 });
-
-async function injectMediaControls(response) {
-  if (!response) return response;
-  const type = response.headers.get('content-type') || '';
-  if (!type.includes('text/html')) return response;
-  const text = await response.text();
-  const headers = new Headers(response.headers);
-  headers.delete('content-length');
-  headers.delete('content-encoding');
-  headers.delete('etag');
-  const html = text.includes('media-session-controls.js')
-    ? text
-    : text.replace('</body>', '  <script src="./media-session-controls.js?v=4" defer></script>\n</body>');
-  return new Response(html, { status: response.status, statusText: response.statusText, headers });
-}
-
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Shared origin: never intercept or cache another app's requests.
+  if (request.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
     try {
       const response = await fetch(request);
-      if (response && response.ok) {
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(request, response.clone()).catch(() => {});
-      }
-      return request.mode === 'navigate' ? injectMediaControls(response) : response;
-    } catch {
-      const cached = (await caches.match(request)) || (request.mode === 'navigate' ? await caches.match('./index.html') : null);
-      return request.mode === 'navigate' ? injectMediaControls(cached) : cached;
+      if (response.ok) event.waitUntil(cache.put(request, response.clone()).catch(() => {}));
+      if (response.ok || request.mode !== 'navigate') return response;
+    } catch {}
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    if (request.mode === 'navigate') {
+      const fallback = await cache.match('./index.html');
+      if (fallback) return fallback;
     }
+    return Response.error();
   })());
 });

@@ -2,13 +2,13 @@
 <h1>Dad's Music 개인정보처리방침</h1>
 <p>Dad's Music은 가족용 개인 음악 플레이어입니다. Google Drive의 지정된 <strong>DADS MUSIC</strong> 폴더에서 오디오 파일을 읽어 Samsung/Android 기기에 오프라인 재생용으로 저장합니다.</p>
 <h2>Google Drive 접근</h2>
-<p>앱은 Google Drive 읽기 권한을 사용해 지정된 폴더의 음악 파일을 나열하고 다운로드합니다. 또한 사용자가 앱에서 “빼기”를 선택한 음악을 기록하기 위해 앱이 생성한 <code>REJECTED_SONGS.csv</code> 파일을 만들고 업데이트할 수 있는 파일 단위 권한을 사용합니다.</p>
-<p>앱은 음악 원본 파일을 직접 삭제하지 않습니다. 실제 Google Drive 음악 삭제는 Drive 소유자가 직접 수행합니다.</p>
+<p>앱은 공개 링크로 읽을 수 있는 지정 폴더를 제한된 Google Drive API 키로 조회해 음악 파일과 <code>REJECTED_SONGS.csv</code>를 읽습니다. Google 계정 로그인이나 브라우저 OAuth 토큰은 사용하지 않습니다.</p>
+<p>사용자가 “빼기”를 선택하면 해당 Drive 파일 ID는 즉시 기기에서 차단되고 제외 요청이 별도 Google Apps Script 기록 서비스로 전송될 수 있습니다. 기록 서비스는 Drive 소유자의 권한으로 <code>REJECTED_SONGS.csv</code>만 만들거나 업데이트합니다. 앱은 음악 원본 파일을 직접 삭제하지 않습니다. 실제 음악 삭제는 Drive 소유자가 직접 수행합니다.</p>
 <h2>기기에 저장되는 정보</h2>
-<p>오프라인 오디오, 음악 메타데이터, 재생 위치, 셔플/반복 설정, 제외한 음악의 Drive 파일 ID, 짧은 수명의 Google OAuth 액세스 토큰이 기기 브라우저 저장공간에 저장될 수 있습니다. Google 비밀번호, OAuth client secret, refresh token은 저장하지 않습니다.</p>
+<p>오프라인 오디오, 음악 메타데이터, 재생 위치, 셔플/반복 설정, 제외한 음악의 Drive 파일 ID와 전송 대기 상태, 제한된 Google Drive API 키와 제외 기록 서비스 주소가 기기 브라우저 저장공간에 저장될 수 있습니다. Google 비밀번호나 OAuth 토큰은 저장하지 않습니다.</p>
 <h2>공유</h2>
-<p>Dad's Music은 이 데이터를 광고주나 제3자에게 판매하지 않습니다. 앱은 기능 수행을 위해 Google Drive API와 통신합니다.</p>
+<p>Dad's Music은 이 데이터를 광고주나 제3자에게 판매하지 않습니다. 앱은 기능 수행을 위해 Google Drive API 및 설정된 Google Apps Script 기록 서비스와 통신합니다.</p>
 <h2>삭제</h2>
-<p>설정의 오프라인 오디오 삭제는 기기의 오디오 전용 데이터베이스만 삭제합니다. 전체 기기 초기화는 Dad's Music의 로컬 데이터만 삭제하며 Google Drive 원본이나 Drive의 거절 목록 파일은 삭제하지 않습니다.</p>
+<p>설정의 오프라인 오디오 삭제는 기기의 오디오 전용 데이터베이스만 삭제합니다. 전체 기기 초기화는 Dad's Music의 로컬 데이터와 로컬 연결 설정을 삭제하며 Google Drive 원본이나 Drive의 제외 목록 파일은 삭제하지 않습니다.</p>
 <p><a href="./">Dad's Music으로 돌아가기</a></p>
 </body></html>

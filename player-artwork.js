@@ -137,7 +137,7 @@
 
   if (!document.querySelector('script[data-fullscreen-now-playing="1"]')) {
     const script = document.createElement('script');
-    script.src = './now-playing-fullscreen.js?v=1';
+    script.src = './now-playing-fullscreen.js?v=2';
     script.defer = true;
     script.dataset.fullscreenNowPlaying = '1';
     document.head.appendChild(script);
