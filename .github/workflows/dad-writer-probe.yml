@@ -10,36 +10,39 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect deployed Apps Script v5 bridge response
+      - name: Inspect Apps Script sandbox relay structure
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://script.google.com/macros/s/AKfycbz_XRJcYb9_2bMZWeX9kDVJkbVxcjH-znPH0yHiUgGiJUXktPxCbClo3WLSLL1NvC5e/exec'
+          NONCE='githubProbeNonce20261022abc123'
           test "$(curl -sS -L --max-time 30 "$BASE?mode=health")" = 'dad-writer-v5'
           echo 'HEALTH=PASS'
-
-          NONCE='githubProbeNonce20261022abc123'
-          HTTP_CODE=$(curl -sS -L --max-time 30 -D /tmp/headers -o /tmp/body -w '%{http_code}' "$BASE?mode=bridge&nonce=$NONCE")
-          echo "HTTP_CODE=$HTTP_CODE"
-          echo "CONTENT_TYPE=$(grep -i '^content-type:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2-)"
-          echo "X_FRAME_OPTIONS=$(grep -i '^x-frame-options:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2- || true)"
-          echo "CSP=$(grep -i '^content-security-policy:' /tmp/headers | tail -1 | tr -d '\r' | cut -d' ' -f2- || true)"
-          echo "BODY_BYTES=$(wc -c < /tmp/body)"
+          curl -sS -L --max-time 30 -o /tmp/body "$BASE?mode=bridge&nonce=$NONCE"
           python3 - <<'PY'
-          import re
+          import html,re
           body=open('/tmp/body',encoding='utf-8',errors='replace').read()
-          checks={
-            'TITLE_BRIDGE':'Dad Music Bridge' in body,
-            'CONFIG_TYPE':'dad-music-config' in body,
-            'SCRIPT_RUN':'google.script.run' in body,
-            'PARENT_ORIGIN':'https://leiaorgana85-create.github.io' in body,
-            'NONCE':'githubProbeNonce20261022abc123' in body,
-            'API_KEY':bool(re.search(r'"apiKey":"AIza[A-Za-z0-9_-]{20,}"',body)),
-            'GOOGLE_WRAPPER':('script.googleusercontent.com' in body or 'userCodeAppPanel' in body or 'sandboxMode' in body),
-          }
-          for k,v in checks.items(): print(f'{k}={"YES" if v else "NO"}')
-          redacted=re.sub(r'AIza[A-Za-z0-9_-]{20,}','AIza[REDACTED]',body[:1200])
-          redacted=re.sub(r'[A-Fa-f0-9]{32}', '[SESSION_REDACTED]', redacted)
-          print('BODY_PREFIX=' + redacted.replace('\n',' ')[:1200])
+          print('POSTMESSAGE_COUNT=', body.count('postMessage'))
+          print('MESSAGE_LISTENER_COUNT=', body.count("addEventListener('message'") + body.count('addEventListener("message"'))
+          print('IFRAME_COUNT=', len(re.findall(r'<iframe\b',body,re.I)))
+          # Print only structural snippets and redact keys/session-looking tokens.
+          for label,pattern in [
+              ('IFRAME',r'<iframe\b[^>]{0,1800}>'),
+              ('USER_PANEL',r'.{0,350}userCodeAppPanel.{0,900}'),
+              ('POSTMESSAGE',r'.{0,250}postMessage.{0,500}'),
+              ('MESSAGE_EVENT',r'.{0,250}message.{0,500}')]:
+              m=re.search(pattern,body,re.I|re.S)
+              if not m:
+                  print(label+'=NONE'); continue
+              s=html.unescape(m.group(0))
+              s=re.sub(r'AIza[A-Za-z0-9_-]{20,}','AIza[REDACTED]',s)
+              s=re.sub(r'[A-Fa-f0-9]{32}','[SESSION_REDACTED]',s)
+              s=re.sub(r'\s+',' ',s)
+              print(label+'='+s[:1600])
+          # Find frame src hosts without printing sensitive query values.
+          from urllib.parse import urlparse
+          srcs=re.findall(r'<iframe\b[^>]*\bsrc=["\']([^"\']+)',body,re.I)
+          for i,src in enumerate(srcs[:10]):
+              p=urlparse(src)
+              print(f'IFRAME_SRC_{i}={p.scheme}://{p.netloc}{p.path}')
           PY
-          test "$HTTP_CODE" = '200'
