@@ -958,10 +958,9 @@
     removePosition();
     saveSettings();
     if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('./sw.js');
+      navigator.serviceWorker.register('./sw.js').then(registration => {
         registration.update().catch(() => {});
-      } catch (error) { console.warn('Service worker unavailable', error); }
+      }).catch(error => console.warn('Service worker unavailable', error));
     }
     updateShuffleButton();
     updateRepeatButton();
