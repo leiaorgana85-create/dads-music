@@ -1,5 +1,6 @@
+// App version: 2026.10.27.1
 const CACHE_PREFIX = 'dads-music-v';
-const CACHE_NAME = 'dads-music-v33';
+const CACHE_NAME = 'dads-music-v34';
 const SHELL = ['./', './index.html', './manifest.json?v=7', './dad-icon.png?v=4', './styles.css?v=3', './dad-writer-bridge.js?v=2', './audio-storage.js?v=3', './metadata.js?v=1', './track-list-display.js?v=1', './app.js?v=10', './player-artwork.js?v=2', './media-session-controls.js?v=5', './now-playing-fullscreen.js?v=2', './reset.html', './privacy.html', './terms.html'];
 
 self.addEventListener('install', event => {
