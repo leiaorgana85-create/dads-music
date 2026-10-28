@@ -5,7 +5,7 @@ const html=fs.readFileSync(release.html,'utf8'),worker=fs.readFileSync(release.w
 const remote=execFileSync('git',['remote','get-url','origin'],{encoding:'utf8'}).trim().replace(/\.git$/,'');
 assert.equal(remote,'https://github.com/'+release.repository,'Wrong app repository');
 if(process.env.GITHUB_REPOSITORY)assert.equal(process.env.GITHUB_REPOSITORY,release.repository);
-assert.match(release.version,/^\d{4}\.\d{2}\.\d{2}\.\d+$/);
+assert.match(release.version,/^v\d+\.\d{2}$/);
 assert(html.includes('data-app-version="'+release.version+'"'),'HTML version mismatch');
 assert.equal((html.match(/id="appVersion"/g)||[]).length,1,'Exactly one visible version label');
 assert(html.includes('data-version="'+release.version+'"'),'Visible version mismatch');
