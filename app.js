@@ -13,6 +13,7 @@
   const PENDING_KEY = 'dadsMusicRejectedPending';
   const OUTBOX_MIGRATION_KEY = 'dadsMusicRejectionOutboxV1';
   const LEDGER_NAME = 'REJECTED_SONGS.csv';
+  const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000;
   const SUPPORTED_MIMES = new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/flac', 'audio/x-flac', 'audio/wav', 'audio/x-wav']);
 
   const els = Object.fromEntries([
@@ -29,6 +30,7 @@
   let currentUrl = null;
   let seekDragging = false;
   let operationBusy = false;
+  let lastAutoSyncAttempt = 0;
   let playbackGeneration = 0;
   let settings = loadSettings();
   let repeatMode = normalizeRepeat(localStorage.getItem(REPEAT_KEY) || 'all');
@@ -548,7 +550,18 @@
   }
 
   async function syncLibrary() {
+    if (!operationBusy) lastAutoSyncAttempt = Date.now();
     return runOperation(syncLibraryNow);
+  }
+
+  // Refresh only while the app is visible and idle. The same operation lock and
+  // Drive validation as manual Music Update protect offline tracks and rejections.
+  function autoSyncIfDue(force = false) {
+    if (!db || operationBusy || !navigator.onLine || document.visibilityState === 'hidden' || !els.audio.paused) return;
+    const now = Date.now();
+    if (!force && now - lastAutoSyncAttempt < AUTO_SYNC_INTERVAL_MS) return;
+    lastAutoSyncAttempt = now;
+    void syncLibrary();
   }
 
   async function syncLibraryNow() {
@@ -925,9 +938,13 @@
 
   window.addEventListener('online', () => {
     updateStatus();
-    if (loadPending().length) syncLibrary();
+    autoSyncIfDue(true);
   });
   window.addEventListener('offline', () => updateStatus('오프라인 상태입니다'));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) autoSyncIfDue();
+  });
+  setInterval(() => autoSyncIfDue(), AUTO_SYNC_INTERVAL_MS);
 
   if ('mediaSession' in navigator) {
     try {
@@ -945,7 +962,7 @@
     if (currentId) updateStatus('오디오를 재생하지 못했습니다', '다른 곡을 선택하거나 업데이트를 다시 눌러 주세요.');
   });
   window.addEventListener('pageshow', () => {
-    if (!operationBusy && db) runOperation(async () => {}).catch(() => {});
+    if (!operationBusy && db) runOperation(async () => {}).then(() => autoSyncIfDue()).catch(() => {});
   });
 
   window.addEventListener('beforeunload', () => {
@@ -968,8 +985,8 @@
     db = await openDb();
     await reloadLocal();
     if (navigator.onLine) {
-      if (loadPending().length) syncLibrary();
-      updateStatus(library.length ? undefined : '처음에는 음악 업데이트를 눌러 주세요');
+      updateStatus(library.length ? undefined : 'Google Drive 자동 동기화 중…');
+      autoSyncIfDue(true);
     } else updateStatus('오프라인 상태입니다');
   }
 
